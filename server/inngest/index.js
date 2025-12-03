@@ -1,5 +1,6 @@
 import { Inngest } from "inngest";
 import prisma from "../config/prisma.js";
+import sendEmail from "../config/nodemailer.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "project-management" });
@@ -131,6 +132,103 @@ const syncWorkspaceMemberCreation = inngest.createFunction(
   }
 );
 
+// Inngest Function to Send Email on Task Creation
+const sendTaskAssignmentEmail = inngest.createFunction(
+  { id: "send-task-assignment-email" },
+  { event: "app/task.assigned" },
+  async ({ event, step }) => {
+    const { taskId, origin } = event.data;
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignee: true, project: true },
+    });
+
+    await sendEmail({
+      to: task.assignee.email,
+      subject: `New Task Assignement in: ${task.project.name}`,
+      body: `<div style="font-family: Arial, sans-serif; font-size:14px; color:#333; line-height:1.5;">
+                Hi <strong>${task.assignee.name}</strong>,<br><
+                <div style="font-size:16px; font-weight:bold;">
+                  📌 ${task.title}
+                </div>
+                <div>
+                  ${task.description}
+                </div>
+                <
+                <div>
+                  <strong>Due Date:</strong> ${new Date(
+                    task.due_date
+                  ).toLocaleDateString()}
+                </div>
+                <
+                <a href="${origin}" style="display:inline-block; padding:10px 16px; background:#007bff; color:#fff; text-decoration:none; border-radius:4px;">
+                  View Task
+                </a>
+                <br><
+                Please make sure to review and complete it before the due date.<br><
+                Thank you.
+              </div>
+`,
+    });
+
+    if (
+      new Date(task.due_date).toLocaleDateString() !== new Date().toDateString()
+    ) {
+      await step.sleepUntil("wait-for-the-due-date", new Date(task.due_date));
+
+      await step.run("check-if-task-is-completed", async () => {
+        const task = await prisma.task.findUnique({
+          where: { id: taskId },
+          include: { assigne: true, project: true },
+        });
+
+        if (!task) return;
+
+        if (task.status !== "DONE") {
+          await step.run("send-task-reminder-mail", async () => {
+            await sendEmail({
+              to: task.assignee.email,
+              subject: `Reminder for ${task.project.name}!`,
+              body: `<div style="font-family: Arial, sans-serif; font-size:14px; color:#333; line-height:1.5;">
+                      Hi <strong>${task.assignee.name}</strong>,<br><br>
+
+                      This is a friendly reminder regarding your task under the project
+                      <strong>${task.project.name}</strong>.<br><br>
+
+                      <div style="font-size:16px; font-weight:bold;">
+                        📌 ${task.title}
+                      </div>
+
+                      <div>
+                        ${task.description}
+                      </div>
+                      <br>
+
+                      <div>
+                        <strong>Due Date:</strong> ${new Date(
+                          task.due_date
+                        ).toLocaleDateString()}
+                      </div>
+                      <br>
+
+                      <a href="${origin}" style="display:inline-block; padding:10px 16px; background:#007bff; color:#fff; text-decoration:none; border-radius:4px;">
+                        View Task
+                      </a>
+                      <br><br>
+
+                      Please make sure to review and complete it before the due date.<br><br>
+
+                      Thank you.
+                    </div>`,
+            });
+          });
+        }
+      });
+    }
+  }
+);
+
 // Create an empty array where we'll export future Inngest functions
 export const functions = [
   syncUserCreation,
@@ -140,4 +238,5 @@ export const functions = [
   syncWorkspaceUpdation,
   syncWorkspaceDeletion,
   syncWorkspaceMemberCreation,
+  sendTaskAssignmentEmail,
 ];
