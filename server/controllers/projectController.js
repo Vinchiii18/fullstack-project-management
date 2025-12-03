@@ -27,9 +27,9 @@ export const createProject = async (req, res) => {
       return res.status(404).json({ message: "Workspace not found" });
 
     if (
-      !workspace.members.some((member) => {
-        member.userId === userId && member.role === "ADMIN";
-      })
+      !workspace.members.some(
+        (member) => member.userId === userId && member.role === "ADMIN"
+      )
     ) {
       return res.status(403).json({
         message:
@@ -79,8 +79,7 @@ export const createProject = async (req, res) => {
       include: {
         members: { include: { user: true } },
         tasks: {
-          include: { assignee: true },
-          comments: { include: { user: true } },
+          include: { assignee: true, comments: { include: { user: true } } },
         },
         owner: true,
       },

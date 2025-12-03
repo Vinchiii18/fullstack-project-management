@@ -19,7 +19,7 @@ function WorkspaceDropdown() {
     (state) => state.workspace?.currentWorkspace || null
   );
 
-  const [image, setImage] = useState(currentWorkspace?.image_url || null);
+  const [image, setImage] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -43,6 +43,19 @@ function WorkspaceDropdown() {
     setIsOpen(false);
     navigate("/");
   };
+
+  // Update image when component loads or workspace changes
+  useEffect(() => {
+    if (currentWorkspace?.id && userMemberships.data && isLoaded) {
+      const workspace = userMemberships.data.find(
+        ({ organization }) => organization.id === currentWorkspace.id
+      )?.organization;
+
+      if (workspace?.imageUrl) {
+        setImage(workspace.imageUrl);
+      }
+    }
+  }, [currentWorkspace?.id, userMemberships.data, isLoaded]);
 
   // Close dropdown on outside click
   useEffect(() => {
