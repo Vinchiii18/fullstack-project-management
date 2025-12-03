@@ -3,7 +3,7 @@ import prisma from "../config/prisma.js";
 // Create project
 export const createProject = async (req, res) => {
   try {
-    const { userid } = await req.auth();
+    const { userId } = await req.auth();
     const {
       workspaceId,
       description,
@@ -20,7 +20,7 @@ export const createProject = async (req, res) => {
     // Check if user has admin role for workspace
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      include: { members: { include: { users: true } } },
+      include: { members: { include: { user: true } } },
     });
 
     if (!workspace)
